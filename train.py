@@ -1,4 +1,4 @@
-
+#!/usr/bin/python3
 """
 Runs one instance of the environment and optimizes using the Soft Actor
 Critic algorithm. Can use a GPU for the agent (applies to both sample and
@@ -35,8 +35,10 @@ def get_full_path(filename):
 def build_and_train(env_id="Cassie-v0", run_ID=0, cuda_idx=None):
     sampler = SerialSampler(
         EnvCls=gym_make,
-        env_kwargs=dict(id=env_id, xml_file=get_full_path('cassie.xml')),
-        eval_env_kwargs=dict(id=env_id, xml_file=get_full_path('cassie.xml')),
+        env_kwargs=dict(id=env_id,
+            xml_file=get_full_path('resources/cassie.xml')),
+        eval_env_kwargs=dict(id=env_id,
+            xml_file=get_full_path('resources/cassie.xml')),
         batch_T=1,  # One time-step per sampler iteration.
         batch_B=1,  # One environment (i.e. sampler Batch dimension).
         max_decorrelation_steps=0,
