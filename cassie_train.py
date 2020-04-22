@@ -44,13 +44,13 @@ def build_and_train(run_ID=0, cuda_idx=None):
         agent=agent,
         sampler=sampler,
         n_steps=1e6,
-        log_interval_steps=1e4,
+        log_interval_steps=5e4,
         affinity=dict(cuda_idx=cuda_idx),
     )
     config = dict()
     name = "sac_cassie"
     log_dir = "cassie"
-    with logger_context(log_dir, run_ID, name, config, use_summary_writer=False):
+    with logger_context(log_dir, run_ID, name, config, use_summary_writer=True):
         runner.train()
 
 

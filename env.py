@@ -5,6 +5,12 @@ from gym.envs.mujoco import mujoco_env
 from gym import utils
 from rlpyt.envs.gym import GymEnvWrapper
 
+DEFAULT_CAMERA_CONFIG = {
+    'trackbodyid': 1,
+    'distance': 4.0,
+    'lookat': np.array((0.0, 0.0, 2.0)),
+    'elevation': -20.0,
+}
 
 def gym_make(*args, **kwargs):
     env = CassieEnv(**kwargs)
@@ -32,7 +38,7 @@ class CassieEnv(mujoco_env.MujocoEnv, utils.EzPickle):
                  contact_cost_range=(-np.inf, 10.0),
                  healthy_reward=5.0,
                  terminate_when_unhealthy=True,
-                 healthy_z_range=(1.0, 2.0),
+                 healthy_z_range=(0.5, 1.5),
                  reset_noise_scale=1e-2,
                  exclude_current_positions_from_observation=True):
         utils.EzPickle.__init__(**locals())
@@ -123,6 +129,8 @@ class CassieEnv(mujoco_env.MujocoEnv, utils.EzPickle):
     def step(self, action):
 
         # action with 10 dim for 10 actuators
+        #print('action:', len(action))
+        #print(action)
 
         xy_position_before = mass_center(self.model, self.sim)
         self.do_simulation(action, self.frame_skip)
