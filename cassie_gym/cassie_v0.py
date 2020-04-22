@@ -1,9 +1,7 @@
 
 import numpy as np
-from gym.wrappers.time_limit import TimeLimit
 from gym.envs.mujoco import mujoco_env
 from gym import utils
-from rlpyt.envs.gym import GymEnvWrapper
 
 DEFAULT_CAMERA_CONFIG = {
     'trackbodyid': 1,
@@ -11,18 +9,6 @@ DEFAULT_CAMERA_CONFIG = {
     'lookat': np.array((0.0, 0.0, 2.0)),
     'elevation': -20.0,
 }
-
-def gym_make(*args, **kwargs):
-    env = CassieEnv(**kwargs)
-    # ignore patch_deprecated_methods step in gym maker
-    # becasue CassieEnv doesn't use _step and _reset
-
-    # the number of max_episode_steps is copied from humanoid-v3 spec
-    env = TimeLimit(env, max_episode_steps=1000)
-    return env
-
-def env_make(*args, **kwargs):
-    return GymEnvWrapper(gym_make(*args, **kwargs))
 
 def mass_center(model, sim):
     mass = np.expand_dims(model.body_mass, axis=1)
