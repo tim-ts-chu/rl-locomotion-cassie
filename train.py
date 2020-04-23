@@ -11,6 +11,7 @@ example.
 """
 
 import os.path
+from gym.envs.registration import register
 from rlpyt.samplers.serial.sampler import SerialSampler
 from rlpyt.envs.gym import make as gym_make
 from rlpyt.algos.qpg.sac import SAC
@@ -18,7 +19,8 @@ from rlpyt.agents.qpg.sac_agent import SacAgent
 from rlpyt.runners.minibatch_rl import MinibatchRlEval
 from rlpyt.utils.logging.context import logger_context
 
-from gym.envs.registration import register
+import numpy as np
+#np.set_printoptions(precision=3)
 
 register(
     id='Cassie-v0',
@@ -44,7 +46,7 @@ def build_and_train(env_id="Cassie-v0", run_ID=0, cuda_idx=None):
         max_decorrelation_steps=0,
         eval_n_envs=1,
         eval_max_steps=int(1000),
-        eval_max_trajectories=50,
+        eval_max_trajectories=50, # 50
     )
     algo = SAC()  # Run with defaults.
     agent = SacAgent()
@@ -53,13 +55,13 @@ def build_and_train(env_id="Cassie-v0", run_ID=0, cuda_idx=None):
         agent=agent,
         sampler=sampler,
         n_steps=1e6,
-        log_interval_steps=5e4,
+        log_interval_steps=5e4, #5e4
         affinity=dict(cuda_idx=cuda_idx),
     )
     config = dict(env_id=env_id)
     name = "sac_" + env_id
     log_dir = "Cassie"
-    with logger_context(log_dir, run_ID, name, config, use_summary_writer=False):
+    with logger_context(log_dir, run_ID, name, config, use_summary_writer=True):
         runner.train()
 
 

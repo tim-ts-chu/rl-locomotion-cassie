@@ -18,14 +18,14 @@ def mass_center(model, sim):
 class CassieEnv(mujoco_env.MujocoEnv, utils.EzPickle):
     def __init__(self,
                  xml_file='',
-                 forward_reward_weight=1.25,
+                 forward_reward_weight=0, # 1.25
                  ctrl_cost_weight=0.1,
                  contact_cost_weight=5e-7,
                  contact_cost_range=(-np.inf, 10.0),
                  healthy_reward=5.0,
                  terminate_when_unhealthy=True,
-                 healthy_z_range=(0.5, 1.5),
-                 reset_noise_scale=1e-2,
+                 healthy_z_range=(0.7, 1.5),
+                 reset_noise_scale=0, #1e-2
                  exclude_current_positions_from_observation=True):
         utils.EzPickle.__init__(**locals())
 
@@ -114,7 +114,17 @@ class CassieEnv(mujoco_env.MujocoEnv, utils.EzPickle):
 
     def step(self, action):
 
-        # action with 10 dim for 10 actuators
+        #import traceback
+        #print(traceback.extract_stack())
+        #action = np.array([
+        #    0.0, 0.0, -12.2, 6.1, -0.9,
+        #    0.0, 0.0, -12.2, 6.1, -0.9])
+
+        # FIXME assume action input range from -1 to 1
+        action_range = np.array([
+            4.5, 4.5, 12.2, 12.2, 0.9,
+            4.5, 4.5, 12.2, 12.2, 0.9])
+        action *= 0.5*action_range
         #print('action:', len(action))
         #print(action)
 
@@ -158,11 +168,24 @@ class CassieEnv(mujoco_env.MujocoEnv, utils.EzPickle):
         noise_low = -self._reset_noise_scale
         noise_high = self._reset_noise_scale
 
+        # FIXME This is a tuned better initial pose
+        # But this setting should be written in xml file
+        self.init_qpos = np.array([
+            0, 0, 1.13, 1, 0, 0, 0, 0, 0, 0.25,
+            1, 0, 0, 0, -0.79, 0, 1, 0, 0, 0,
+            -1.5, 0, 0, 0.25, 1, 0, 0, 0, -0.79, 0,
+            1, 0, 0, 0, -1.5])
+
         qpos = self.init_qpos + self.np_random.uniform(
             low=noise_low, high=noise_high, size=self.model.nq)
         qvel = self.init_qvel + self.np_random.uniform(
             low=noise_low, high=noise_high, size=self.model.nv)
+
+        #qpos = self.init_qpos
+        #qvel = self.init_qvel
         self.set_state(qpos, qvel)
+        #print('qpos:', self.init_qpos)
+        #print('qvel:', self.init_qvel)
 
         observation = self._get_obs()
         return observation
