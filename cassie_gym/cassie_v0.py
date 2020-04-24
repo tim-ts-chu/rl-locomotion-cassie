@@ -18,14 +18,14 @@ def mass_center(model, sim):
 class CassieEnv(mujoco_env.MujocoEnv, utils.EzPickle):
     def __init__(self,
                  xml_file='',
-                 forward_reward_weight=0, # 1.25
+                 forward_reward_weight=1.5, # 1.25
                  ctrl_cost_weight=0.1,
                  contact_cost_weight=5e-7,
                  contact_cost_range=(-np.inf, 10.0),
                  healthy_reward=5.0,
                  terminate_when_unhealthy=True,
                  healthy_z_range=(0.7, 1.5),
-                 reset_noise_scale=0, #1e-2
+                 reset_noise_scale=1e-2, #1e-2
                  exclude_current_positions_from_observation=True):
         utils.EzPickle.__init__(**locals())
 
@@ -137,12 +137,13 @@ class CassieEnv(mujoco_env.MujocoEnv, utils.EzPickle):
 
         ctrl_cost = self.control_cost(action)
         contact_cost = self.contact_cost
+        side_shift_cost = y_velocity
 
         forward_reward = self._forward_reward_weight * x_velocity
         healthy_reward = self.healthy_reward
 
         rewards = forward_reward + healthy_reward
-        costs = ctrl_cost + contact_cost
+        costs = ctrl_cost + contact_cost + side_shift_cost
 
         observation = self._get_obs()
         reward = rewards - costs

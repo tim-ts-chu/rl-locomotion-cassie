@@ -11,6 +11,7 @@ example.
 """
 
 import os.path
+import torch
 from gym.envs.registration import register
 from rlpyt.samplers.serial.sampler import SerialSampler
 from rlpyt.envs.gym import make as gym_make
@@ -34,7 +35,11 @@ def get_full_path(filename):
     fullpath = os.path.abspath(filename)
     return fullpath
 
-def build_and_train(env_id="Cassie-v0", run_ID=0, cuda_idx=None):
+def build_and_train(env_id="Cassie-v0", run_ID=0, cuda_idx=None, snapshot_file=None):
+
+    if snapshot_file is not None:
+        snapshot = torch.load(snapshot_file)
+
     sampler = SerialSampler(
         EnvCls=gym_make,
         env_kwargs=dict(id=env_id,
@@ -48,20 +53,24 @@ def build_and_train(env_id="Cassie-v0", run_ID=0, cuda_idx=None):
         eval_max_steps=int(1000),
         eval_max_trajectories=50, # 50
     )
-    algo = SAC()  # Run with defaults.
-    agent = SacAgent()
+    algo = SAC(initial_optim_state_dict=snapshot['optimizer_state_dict'])  # Run with defaults.
+    agent = SacAgent(initial_model_state_dict=snapshot['agent_state_dict'])
     runner = MinibatchRlEval(
         algo=algo,
         agent=agent,
         sampler=sampler,
-        n_steps=1e6,
+        n_steps=1e7,
         log_interval_steps=5e4, #5e4
         affinity=dict(cuda_idx=cuda_idx),
     )
-    config = dict(env_id=env_id)
+    other_param = dict(
+            env_id=env_id,
+            forward_reward_weight=1.5,
+            side_shift_cost=1,
+            cum_steps='1M')
     name = "sac_" + env_id
-    log_dir = "Cassie"
-    with logger_context(log_dir, run_ID, name, config, use_summary_writer=True):
+    log_dir = "Cassie_walk"
+    with logger_context(log_dir, run_ID, name, other_param, snapshot_mode='last', use_summary_writer=True):
         runner.train()
 
 
@@ -71,8 +80,10 @@ if __name__ == "__main__":
     parser.add_argument('--env_id', help='environment ID', default='Cassie-v0')
     parser.add_argument('--run_ID', help='run identifier (logging)', type=int, default=0)
     parser.add_argument('--cuda_idx', help='gpu to use ', type=int, default=0)
+    parser.add_argument('--snapshot_file', help='pretrained snapshot file', default=None)
     args = parser.parse_args()
     build_and_train(
         run_ID=args.run_ID,
         cuda_idx=args.cuda_idx,
+        snapshot_file=args.snapshot_file
     )
