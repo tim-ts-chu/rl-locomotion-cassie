@@ -37,8 +37,13 @@ def get_full_path(filename):
 
 def build_and_train(env_id="Cassie-v0", run_ID=0, cuda_idx=None, snapshot_file=None):
 
-    if snapshot_file is not None:
+    if snapshot_file is None:
+        initial_optim_state_dict = None
+        initial_model_state_dict = None
+    else:
         snapshot = torch.load(snapshot_file)
+        initial_optim_state_dict=snapshot['optimizer_state_dict']
+        initial_model_state_dict=snapshot['agent_state_dict']
 
     sampler = SerialSampler(
         EnvCls=gym_make,
@@ -53,23 +58,25 @@ def build_and_train(env_id="Cassie-v0", run_ID=0, cuda_idx=None, snapshot_file=N
         eval_max_steps=int(1000),
         eval_max_trajectories=50, # 50
     )
-    algo = SAC(initial_optim_state_dict=snapshot['optimizer_state_dict'])  # Run with defaults.
-    agent = SacAgent(initial_model_state_dict=snapshot['agent_state_dict'])
+    algo = SAC(
+            initial_optim_state_dict=initial_optim_state_dict)
+    agent = SacAgent(
+            initial_model_state_dict=initial_model_state_dict)
     runner = MinibatchRlEval(
         algo=algo,
         agent=agent,
         sampler=sampler,
-        n_steps=1e7,
+        n_steps=1e6,
         log_interval_steps=5e4, #5e4
         affinity=dict(cuda_idx=cuda_idx),
     )
     other_param = dict(
             env_id=env_id,
-            forward_reward_weight=1.5,
-            side_shift_cost=1,
+            forward_reward_weight=0,
+            shift_cost=True,
             cum_steps='1M')
     name = "sac_" + env_id
-    log_dir = "Cassie_walk"
+    log_dir = "Cassie_stand"
     with logger_context(log_dir, run_ID, name, other_param, snapshot_mode='last', use_summary_writer=True):
         runner.train()
 

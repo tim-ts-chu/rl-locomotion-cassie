@@ -1,5 +1,6 @@
 
 import numpy as np
+from mujoco_py.builder import MujocoException
 from gym.envs.mujoco import mujoco_env
 from gym import utils
 
@@ -18,15 +19,16 @@ def mass_center(model, sim):
 class CassieEnv(mujoco_env.MujocoEnv, utils.EzPickle):
     def __init__(self,
                  xml_file='',
-                 forward_reward_weight=1.5, # 1.25
-                 ctrl_cost_weight=0.1,
+                 forward_reward_weight=1.25, # 1.25
+                 ctrl_cost_weight=0.1, #0.1
                  contact_cost_weight=5e-7,
                  contact_cost_range=(-np.inf, 10.0),
                  healthy_reward=5.0,
                  terminate_when_unhealthy=True,
                  healthy_z_range=(0.7, 1.5),
                  reset_noise_scale=1e-2, #1e-2
-                 exclude_current_positions_from_observation=True):
+                 exclude_current_positions_from_observation=True,
+                 enable_perturb=True):
         utils.EzPickle.__init__(**locals())
 
         # save reward parameters
@@ -43,6 +45,9 @@ class CassieEnv(mujoco_env.MujocoEnv, utils.EzPickle):
         self._exclude_current_positions_from_observation = (
             exclude_current_positions_from_observation)
 
+        self._enable_perturb = enable_perturb
+        self._interval_count = 0
+
         # model path, frame_skip
         mujoco_env.MujocoEnv.__init__(self, xml_file, 5)
 
@@ -55,7 +60,7 @@ class CassieEnv(mujoco_env.MujocoEnv, utils.EzPickle):
 
     def control_cost(self, action):
         control_cost = self._ctrl_cost_weight * np.sum(
-            np.square(self.sim.data.ctrl))
+            np.square(action))
         return control_cost
 
     @property
@@ -112,24 +117,31 @@ class CassieEnv(mujoco_env.MujocoEnv, utils.EzPickle):
             external_contact_forces,
         ))
 
-    def step(self, action):
+    def apply_force(self, force):
+        # apply force o pelvis: bodyid = 1
+        self.sim.data.xfrc_applied[1,:] = force
 
-        #import traceback
-        #print(traceback.extract_stack())
-        #action = np.array([
-        #    0.0, 0.0, -12.2, 6.1, -0.9,
-        #    0.0, 0.0, -12.2, 6.1, -0.9])
+    def step(self, action):
 
         # FIXME assume action input range from -1 to 1
         action_range = np.array([
             4.5, 4.5, 12.2, 12.2, 0.9,
             4.5, 4.5, 12.2, 12.2, 0.9])
-        action *= 0.5*action_range
-        #print('action:', len(action))
-        #print(action)
+
+        if self._enable_perturb:
+            self._interval_count += 1
+            if self._interval_count % 200 == 0:
+                self.apply_force(np.random.uniform(-0,0,6))
 
         xy_position_before = mass_center(self.model, self.sim)
-        self.do_simulation(action, self.frame_skip)
+        try:
+            # only use 50% of full power
+            self.do_simulation(action*0.5*action_range, self.frame_skip)
+        except MujocoException as e:
+            print(e)
+            # return -5 to represent super unhealthy
+            return self._get_obs(), -5, True, {}
+
         xy_position_after = mass_center(self.model, self.sim)
 
         xy_velocity = (xy_position_after - xy_position_before) / self.dt
@@ -137,17 +149,26 @@ class CassieEnv(mujoco_env.MujocoEnv, utils.EzPickle):
 
         ctrl_cost = self.control_cost(action)
         contact_cost = self.contact_cost
-        side_shift_cost = y_velocity
+        shifting_cost_weight = 0
+        shifting_cost = shifting_cost_weight*(abs(x_velocity) + abs(y_velocity))
 
+        # forward_reward_weight has been set to zero
         forward_reward = self._forward_reward_weight * x_velocity
         healthy_reward = self.healthy_reward
 
         rewards = forward_reward + healthy_reward
-        costs = ctrl_cost + contact_cost + side_shift_cost
+        costs = ctrl_cost + contact_cost + shifting_cost
 
         observation = self._get_obs()
         reward = rewards - costs
         done = self.done
+
+        #print('healthy_reward:', healthy_reward)
+        #print('shifting_cost:', shifting_cost)
+        #print('control_cost:', ctrl_cost)
+        #print('contact_cost:', contact_cost)
+        #print('=== final reward ===:', reward)
+
         info = {
             'reward_linvel': forward_reward,
             'reward_quadctrl': -ctrl_cost,
